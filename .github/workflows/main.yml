@@ -1,78 +1,41 @@
-
-name: Build Shadow Rift APK
+name: Build Shadow Rift Android APK
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-
-permissions:
-  contents: read
+    branches: [ main ]
 
 jobs:
   build:
-    name: Compile Android APK
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Extract game source
+      - uses: actions/checkout@v4
+      - name: Extract project archive if present
         run: |
-          unzip -o ShadowRift_Android_Project.zip
-          cp -r ShadowRift_Android/. .
-
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
+          if [ -f ShadowRift_Android_Project.zip ]; then unzip -o ShadowRift_Android_Project.zip; fi
+          if [ -d ShadowRift_Android ]; then cp -r ShadowRift_Android/. .; fi
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
-
-      - name: Fix Java and Kotlin compatibility
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK packages
         run: |
-          cat > app/build.gradle.kts <<'EOF'
-          plugins {
-              id("com.android.application")
-              id("org.jetbrains.kotlin.android")
-          }
-
-          android {
-              namespace = "com.shadowrift.game"
-              compileSdk = 35
-
-              defaultConfig {
-                  applicationId = "com.shadowrift.game"
-                  minSdk = 23
-                  targetSdk = 35
-                  versionCode = 1
-                  versionName = "1.0"
-              }
-
-              compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
-              }
-
-              kotlinOptions {
-                  jvmTarget = "17"
-              }
-          }
-          EOF
-
-      - name: Build Shadow Rift APK
-        run: gradle assembleDebug
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          yes | sdkmanager --licenses
+      - uses: chickensoft-games/setup-godot@v2
         with:
-          name: ShadowRift-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          version: 4.4.1
+          use-dotnet: false
+          include-templates: true
+      - name: Validate project
+        run: godot --headless --editor --path . --quit
+      - name: Export APK
+        run: |
+          mkdir -p build
+          godot --headless --path . --export-debug "Android" build/ShadowRift.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ShadowRift-Android-APK
+          path: build/ShadowRift.apk
           if-no-files-found: error
-          retention-days: 7
