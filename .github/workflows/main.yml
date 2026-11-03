@@ -9,32 +9,52 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Extract project archive if present
         run: |
-          if [ -f ShadowRift_Android_Project.zip ]; then unzip -o ShadowRift_Android_Project.zip; fi
-          if [ -d ShadowRift_Android ]; then cp -r ShadowRift_Android/. .; fi
-      - uses: actions/setup-java@v4
+          if [ -f ShadowRift_Android_Project.zip ]; then
+            unzip -o ShadowRift_Android_Project.zip
+          fi
+          if [ -d ShadowRift_Android ]; then
+            cp -r ShadowRift_Android/. .
+          fi
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - name: Install Android SDK packages
+
+      - name: Set up Android SDK and accept licenses
+        uses: android-actions/setup-android@v3
+        with:
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: false
+          packages: ''
+
+      - name: Install Android SDK components
         run: |
           sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-          yes | sdkmanager --licenses
-      - uses: chickensoft-games/setup-godot@v2
+
+      - name: Set up Godot 4.4.1 with export templates
+        uses: chickensoft-games/setup-godot@v2
         with:
           version: 4.4.1
           use-dotnet: false
           include-templates: true
-      - name: Validate project
+
+      - name: Validate Godot project
         run: godot --headless --editor --path . --quit
-      - name: Export APK
+
+      - name: Export Android APK
         run: |
           mkdir -p build
           godot --headless --path . --export-debug "Android" build/ShadowRift.apk
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: ShadowRift-Android-APK
           path: build/ShadowRift.apk
